@@ -56,8 +56,11 @@ double Simulation::wrapped_delta(double delta, double span) {
 }
 
 double Simulation::wrap(double value, double span) {
+    // Reduce positions that cross more than one world span.
     value = std::fmod(value, span);
+    // fmod preserves a negative remainder for positions moving left or up.
     if (value < 0.0) {
+        // Shift that remainder back into the toroidal world bounds.
         value += span;
     }
     return value;
