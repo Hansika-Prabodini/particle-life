@@ -12,6 +12,19 @@ bool close(double left, double right, double tolerance = 1.0e-12) {
 }  // namespace
 
 int main() {
+    particle_life::Simulation fast_particle(1, 7);
+    auto& particle = const_cast<particle_life::Particle&>(fast_particle.particles().front());
+    particle.x = 1.0;
+    particle.y = 1.0;
+    particle.vx = particle_life::Simulation::width * 2.0;
+    particle.vy = -particle_life::Simulation::height * 3.0;
+    fast_particle.step();
+    const auto& wrapped_particle = fast_particle.particles().front();
+    if (!close(wrapped_particle.x, 1.0) || !close(wrapped_particle.y, 1.0)) {
+        std::cerr << "particle did not wrap after crossing multiple world widths\n";
+        return 1;
+    }
+
     particle_life::Simulation first(128, 42);
     particle_life::Simulation second(128, 42);
 
