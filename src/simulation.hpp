@@ -6,6 +6,7 @@
 
 namespace particle_life {
 
+#pragma pack(push, 1)
 struct Particle {
     double x;
     double y;
@@ -13,6 +14,10 @@ struct Particle {
     double vy;
     std::uint8_t species;
 };
+#pragma pack(pop)
+
+static_assert(sizeof(Particle) == 4 * sizeof(double) + sizeof(std::uint8_t),
+              "Particle records must not contain padding");
 
 class Simulation {
 public:
