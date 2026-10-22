@@ -19,9 +19,3 @@ target_link_libraries(particle_life_tests PRIVATE particle_sim)
 target_compile_options(particle_life_tests PRIVATE -Wall -Wextra -Wpedantic)
 add_test(NAME simulation COMMAND particle_life_tests)
 
-enable_testing()
-
-add_test(
-    NAME ART2386_IntentionalFailure
-    COMMAND "${CMAKE_COMMAND}" -E false
-)
