@@ -12,6 +12,21 @@ bool close(double left, double right, double tolerance = 1.0e-12) {
 }  // namespace
 
 int main() {
+    particle_life::Simulation single_particle(1, 7);
+    auto& particle = const_cast<particle_life::Particle&>(single_particle.particles().front());
+    particle.x = 3.0 * particle_life::Simulation::width - 0.1;
+    particle.y = -2.0 * particle_life::Simulation::height + 0.1;
+    particle.vx = 0.0;
+    particle.vy = 0.0;
+    single_particle.step();
+
+    constexpr double expected_x = particle_life::Simulation::width - 0.1;
+    constexpr double expected_y = 0.1;
+    if (!close(particle.x, expected_x) || !close(particle.y, expected_y)) {
+        std::cerr << "positions crossing multiple world spans were not wrapped\n";
+        return 1;
+    }
+
     particle_life::Simulation first(128, 42);
     particle_life::Simulation second(128, 42);
 
