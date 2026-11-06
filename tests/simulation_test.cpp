@@ -58,6 +58,17 @@ int main() {
         }
     }
 
+    particle_life::Simulation wrapping(1, 7);
+    for (int step = 0; step < 200; ++step) {
+        wrapping.step();
+    }
+    const auto& wrapped_particle = wrapping.particles().front();
+    if (wrapped_particle.x < 0.0 || wrapped_particle.x >= particle_life::Simulation::width ||
+        wrapped_particle.y < 0.0 || wrapped_particle.y >= particle_life::Simulation::height) {
+        std::cerr << "particle did not wrap after a large displacement\n";
+        return 1;
+    }
+
     const double result = first.checksum();
     constexpr double expected_checksum = 610659.60219911579;
     if (!std::isfinite(result) || !close(result, expected_checksum, 1.0e-6)) {
