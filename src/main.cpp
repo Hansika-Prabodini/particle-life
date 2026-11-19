@@ -13,7 +13,15 @@ namespace {
 
 std::size_t parse_count(const char* value, const char* name) {
     try {
-        const auto parsed = std::stoull(value);
+        const std::string text(value);
+        if (text.empty() || text[0] == '-' || text[0] == '+' || std::isspace(static_cast<unsigned char>(text[0]))) {
+            throw std::invalid_argument("sign or whitespace");
+        }
+        std::size_t pos = 0;
+        const auto parsed = std::stoull(text, &pos);
+        if (pos != text.size()) {
+            throw std::invalid_argument("trailing characters");
+        }
         if (parsed == 0) {
             throw std::invalid_argument("zero");
         }
