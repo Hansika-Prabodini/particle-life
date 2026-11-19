@@ -81,8 +81,8 @@ void Simulation::step() {
     std::vector<std::size_t> cell_start(cell_count + 1, 0);
     for (std::size_t i = 0; i < count; ++i) {
         const Particle& p = particles_[i];
-        std::size_t cx = std::min(static_cast<std::size_t>(p.x / cell_w), cols - 1);
-        std::size_t cy = std::min(static_cast<std::size_t>(p.y / cell_h), rows - 1);
+        const std::size_t cx = std::min(static_cast<std::size_t>(p.x / cell_w), cols - 1);
+        const std::size_t cy = std::min(static_cast<std::size_t>(p.y / cell_h), rows - 1);
         const std::size_t cell = cy * cols + cx;
         particle_cell[i] = cell;
         ++cell_start[cell + 1];
