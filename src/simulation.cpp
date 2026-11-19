@@ -68,6 +68,39 @@ double Simulation::wrap(double value, double span) {
 }
 
 void Simulation::step() {
+    std::fill(cell_members_.begin(), cell_members_.end(), 0);
+    const double cell_width = width / static_cast<double>(grid_columns);
+    const double cell_height = height / static_cast<double>(grid_rows);
+    for (std::size_t i = 0; i < particles_.size(); ++i) {
+        const Particle& particle = particles_[i];
+        const std::size_t column = std::min(static_cast<std::size_t>(particle.x / cell_width),
+                                            grid_columns - 1);
+        const std::size_t row = std::min(static_cast<std::size_t>(particle.y / cell_height),
+                                         grid_rows - 1);
+        const std::size_t cell = row * grid_columns + column;
+        particle_cells_[i] = cell;
+        cell_members_[cell * mask_words_ + i / 64] |= std::uint64_t{1} << (i % 64);
+    }
+
+    for (std::size_t row = 0; row < grid_rows; ++row) {
+        for (std::size_t column = 0; column < grid_columns; ++column) {
+            const std::size_t cell = row * grid_columns + column;
+            std::uint64_t* mask = neighbor_members_.data() + cell * mask_words_;
+            std::fill(mask, mask + mask_words_, 0);
+            for (int dy = -1; dy <= 1; ++dy) {
+                const std::size_t nearby_row = (row + grid_rows + dy) % grid_rows;
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const std::size_t nearby_column = (column + grid_columns + dx) % grid_columns;
+                    const std::uint64_t* members = cell_members_.data() +
+                        (nearby_row * grid_columns + nearby_column) * mask_words_;
+                    for (std::size_t word = 0; word < mask_words_; ++word) {
+                        mask[word] |= members[word];
+                    }
+                }
+            }
+        }
+    }
+
     for (std::size_t i = 0; i < particles_.size(); ++i) {
         const Particle& particle = particles_[i];
         double force_x = 0.0;
