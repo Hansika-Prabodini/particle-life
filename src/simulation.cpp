@@ -20,7 +20,10 @@ constexpr double height = Simulation::height;
 }  // namespace
 
 Simulation::Simulation(std::size_t particle_count, std::uint32_t seed)
-    : particles_(particle_count), next_vx_(particle_count), next_vy_(particle_count) {
+    : particles_(particle_count), next_vx_(particle_count), next_vy_(particle_count),
+      mask_words_((particle_count + 63) / 64), particle_cells_(particle_count),
+      cell_members_(grid_columns * grid_rows * mask_words_),
+      neighbor_members_(grid_columns * grid_rows * mask_words_) {
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> x_dist(0.0, width);
     std::uniform_real_distribution<double> y_dist(0.0, height);
