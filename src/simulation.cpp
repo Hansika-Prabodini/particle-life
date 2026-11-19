@@ -68,6 +68,9 @@ double Simulation::wrap(double value, double span) {
 }
 
 void Simulation::step() {
+    if (particles_.empty()) {
+        return;
+    }
     std::fill(cell_members_.begin(), cell_members_.end(), 0);
     const double cell_width = width / static_cast<double>(grid_columns);
     const double cell_height = height / static_cast<double>(grid_rows);
