@@ -20,7 +20,10 @@ constexpr double height = Simulation::height;
 }  // namespace
 
 Simulation::Simulation(std::size_t particle_count, std::uint32_t seed)
-    : particles_(particle_count), next_vx_(particle_count), next_vy_(particle_count) {
+    : particles_(particle_count), next_vx_(particle_count), next_vy_(particle_count),
+      mask_words_((particle_count + 63) / 64), particle_cells_(particle_count),
+      cell_members_(grid_columns * grid_rows * mask_words_),
+      neighbor_members_(grid_columns * grid_rows * mask_words_) {
     std::mt19937 rng(seed);
     std::uniform_real_distribution<double> x_dist(0.0, width);
     std::uniform_real_distribution<double> y_dist(0.0, height);
@@ -65,37 +68,79 @@ double Simulation::wrap(double value, double span) {
 }
 
 void Simulation::step() {
+    if (particles_.empty()) {
+        return;
+    }
+    std::fill(cell_members_.begin(), cell_members_.end(), 0);
+    const double cell_width = width / static_cast<double>(grid_columns);
+    const double cell_height = height / static_cast<double>(grid_rows);
+    for (std::size_t i = 0; i < particles_.size(); ++i) {
+        const Particle& particle = particles_[i];
+        const std::size_t column = std::min(static_cast<std::size_t>(particle.x / cell_width),
+                                            grid_columns - 1);
+        const std::size_t row = std::min(static_cast<std::size_t>(particle.y / cell_height),
+                                         grid_rows - 1);
+        const std::size_t cell = row * grid_columns + column;
+        particle_cells_[i] = cell;
+        cell_members_[cell * mask_words_ + i / 64] |= std::uint64_t{1} << (i % 64);
+    }
+
+    for (std::size_t row = 0; row < grid_rows; ++row) {
+        for (std::size_t column = 0; column < grid_columns; ++column) {
+            const std::size_t cell = row * grid_columns + column;
+            std::uint64_t* mask = neighbor_members_.data() + cell * mask_words_;
+            std::fill(mask, mask + mask_words_, 0);
+            for (int dy = -1; dy <= 1; ++dy) {
+                const std::size_t nearby_row = (row + grid_rows + dy) % grid_rows;
+                for (int dx = -1; dx <= 1; ++dx) {
+                    const std::size_t nearby_column = (column + grid_columns + dx) % grid_columns;
+                    const std::uint64_t* members = cell_members_.data() +
+                        (nearby_row * grid_columns + nearby_column) * mask_words_;
+                    for (std::size_t word = 0; word < mask_words_; ++word) {
+                        mask[word] |= members[word];
+                    }
+                }
+            }
+        }
+    }
+
     for (std::size_t i = 0; i < particles_.size(); ++i) {
         const Particle& particle = particles_[i];
         double force_x = 0.0;
         double force_y = 0.0;
 
-        for (std::size_t j = 0; j < particles_.size(); ++j) {
-            if (i == j) {
-                continue;
+        const std::uint64_t* neighbors = neighbor_members_.data() + particle_cells_[i] * mask_words_;
+        for (std::size_t word = 0; word < mask_words_; ++word) {
+            std::uint64_t candidates = neighbors[word];
+            while (candidates != 0) {
+                const std::size_t j = word * 64 + static_cast<std::size_t>(__builtin_ctzll(candidates));
+                candidates &= candidates - 1;
+                if (i == j) {
+                    continue;
+                }
+
+                const Particle& other = particles_[j];
+                const double dx = wrapped_delta(other.x - particle.x, width);
+                const double dy = wrapped_delta(other.y - particle.y, height);
+                const double distance_sq = dx * dx + dy * dy;
+
+                if (distance_sq <= 1.0e-12 || distance_sq >= interaction_radius_sq) {
+                    continue;
+                }
+
+                const double distance = std::sqrt(distance_sq);
+                double strength;
+                if (distance < repulsion_radius) {
+                    strength = distance / repulsion_radius - 1.0;
+                } else {
+                    const double envelope = 1.0 - std::abs(2.0 * distance / interaction_radius - 1.0);
+                    strength = affinity_[particle.species][other.species] * envelope;
+                }
+
+                const double scaled = force_scale * strength / distance;
+                force_x += dx * scaled;
+                force_y += dy * scaled;
             }
-
-            const Particle& other = particles_[j];
-            const double dx = wrapped_delta(other.x - particle.x, width);
-            const double dy = wrapped_delta(other.y - particle.y, height);
-            const double distance_sq = dx * dx + dy * dy;
-
-            if (distance_sq <= 1.0e-12 || distance_sq >= interaction_radius_sq) {
-                continue;
-            }
-
-            const double distance = std::sqrt(distance_sq);
-            double strength;
-            if (distance < repulsion_radius) {
-                strength = distance / repulsion_radius - 1.0;
-            } else {
-                const double envelope = 1.0 - std::abs(2.0 * distance / interaction_radius - 1.0);
-                strength = affinity_[particle.species][other.species] * envelope;
-            }
-
-            const double scaled = force_scale * strength / distance;
-            force_x += dx * scaled;
-            force_y += dy * scaled;
         }
 
         double vx = (particle.vx + force_x) * damping;

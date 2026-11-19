@@ -36,9 +36,16 @@ private:
     static double wrapped_delta(double delta, double span);
     static double wrap(double value, double span);
 
+    static constexpr std::size_t grid_columns = 13;
+    static constexpr std::size_t grid_rows = 7;
+
     std::vector<Particle> particles_;
     std::vector<double> next_vx_;
     std::vector<double> next_vy_;
+    std::size_t mask_words_;
+    std::vector<std::size_t> particle_cells_;
+    std::vector<std::uint64_t> cell_members_;
+    std::vector<std::uint64_t> neighbor_members_;
     double affinity_[species_count][species_count]{};
 };
 
