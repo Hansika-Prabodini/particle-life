@@ -65,16 +65,66 @@ double Simulation::wrap(double value, double span) {
 }
 
 void Simulation::step() {
-    for (std::size_t i = 0; i < particles_.size(); ++i) {
+    // Uniform grid over the wrapped world. Cell sizes are at least interaction_radius, so every
+    // neighbour within the radius lies in the 3x3 block of cells around a particle.
+    constexpr std::size_t cols = static_cast<std::size_t>(width / interaction_radius);
+    constexpr std::size_t rows = static_cast<std::size_t>(height / interaction_radius);
+    constexpr double cell_w = width / static_cast<double>(cols);
+    constexpr double cell_h = height / static_cast<double>(rows);
+    static_assert(cols >= 3 && rows >= 3, "3x3 neighbourhood must not revisit cells");
+
+    const std::size_t count = particles_.size();
+    const std::size_t cell_count = cols * rows;
+
+    // Counting-sort particles into cells (flat CSR layout).
+    std::vector<std::size_t> particle_cell(count);
+    std::vector<std::size_t> cell_start(cell_count + 1, 0);
+    for (std::size_t i = 0; i < count; ++i) {
+        const Particle& p = particles_[i];
+        std::size_t cx = std::min(static_cast<std::size_t>(p.x / cell_w), cols - 1);
+        std::size_t cy = std::min(static_cast<std::size_t>(p.y / cell_h), rows - 1);
+        const std::size_t cell = cy * cols + cx;
+        particle_cell[i] = cell;
+        ++cell_start[cell + 1];
+    }
+    for (std::size_t c = 0; c < cell_count; ++c) {
+        cell_start[c + 1] += cell_start[c];
+    }
+    std::vector<std::size_t> cell_items(count);
+    {
+        std::vector<std::size_t> fill(cell_start.begin(), cell_start.end() - 1);
+        for (std::size_t i = 0; i < count; ++i) {
+            cell_items[fill[particle_cell[i]]++] = i;
+        }
+    }
+
+    std::vector<std::size_t> candidates;
+    for (std::size_t i = 0; i < count; ++i) {
         const Particle& particle = particles_[i];
         double force_x = 0.0;
         double force_y = 0.0;
 
-        for (std::size_t j = 0; j < particles_.size(); ++j) {
-            if (i == j) {
-                continue;
+        // Gather candidates from the 3x3 wrapped neighbourhood, then sort so that the
+        // accumulation order matches the original ascending-j loop.
+        candidates.clear();
+        const std::size_t cell = particle_cell[i];
+        const std::size_t cx = cell % cols;
+        const std::size_t cy = cell / cols;
+        for (std::size_t oy = 0; oy < 3; ++oy) {
+            const std::size_t ny = (cy + rows + oy - 1) % rows;
+            for (std::size_t ox = 0; ox < 3; ++ox) {
+                const std::size_t nx = (cx + cols + ox - 1) % cols;
+                const std::size_t nc = ny * cols + nx;
+                for (std::size_t k = cell_start[nc]; k < cell_start[nc + 1]; ++k) {
+                    if (cell_items[k] != i) {
+                        candidates.push_back(cell_items[k]);
+                    }
+                }
             }
+        }
+        std::sort(candidates.begin(), candidates.end());
 
+        for (const std::size_t j : candidates) {
             const Particle& other = particles_[j];
             const double dx = wrapped_delta(other.x - particle.x, width);
             const double dy = wrapped_delta(other.y - particle.y, height);
