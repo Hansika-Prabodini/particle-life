@@ -39,6 +39,11 @@ private:
     std::vector<Particle> particles_;
     std::vector<double> next_vx_;
     std::vector<double> next_vy_;
+    // Scratch buffers for the spatial grid (reused across steps).
+    std::vector<std::uint32_t> cell_of_;
+    std::vector<std::uint32_t> cell_start_;
+    std::vector<std::uint32_t> cell_items_;
+    std::vector<std::uint32_t> candidates_;
     double affinity_[species_count][species_count]{};
 };
 
