@@ -25,5 +25,5 @@ target_compile_options(particle_life PRIVATE -Wall -Wextra -Wpedantic ${PARTICLE
 enable_testing()
 add_executable(particle_life_tests tests/simulation_test.cpp)
 target_link_libraries(particle_life_tests PRIVATE particle_sim)
-target_compile_options(particle_life_tests PRIVATE -Wall -Wextra -Wpedantic)
+target_compile_options(particle_life_tests PRIVATE -Wall -Wextra -Wpedantic ${PARTICLE_OPT_FLAGS})
 add_test(NAME simulation COMMAND particle_life_tests)
